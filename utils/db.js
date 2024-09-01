@@ -1,3 +1,9 @@
+import { MongoClient } from 'mongodb';
+import dotenv from 'dotenv';
+
+dotenv.config(); // Load environment variables from .env file
+
+
 class DBClient {
   /**
    * Creates a new DBClient instance.
