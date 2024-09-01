@@ -1,9 +1,11 @@
-import { MongoClient } from 'mongodb';
-import dotenv from 'dotenv';
+import mongodb from 'mongodb';
+// eslint-disable-next-line no-unused-vars
+import Collection from 'mongodb/lib/collection';
+import envLoader from './env_loader';
 
-dotenv.config(); // Load environment variables from .env file
-
-
+/**
+ * Represents a MongoDB client.
+ */
 class DBClient {
   /**
    * Creates a new DBClient instance.

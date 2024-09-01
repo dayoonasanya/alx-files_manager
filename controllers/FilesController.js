@@ -1,4 +1,3 @@
-
 /* eslint-disable import/no-named-as-default */
 /* eslint-disable no-unused-vars */
 import { tmpdir } from 'os';

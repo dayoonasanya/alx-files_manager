@@ -9,4 +9,3 @@ const injectMiddlewares = (api) => {
 };
 
 export default injectMiddlewares;
-
