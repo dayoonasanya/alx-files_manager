@@ -192,7 +192,54 @@ export default class FilesController {
           { $limit: MAX_FILES_PER_PAGE },
           {
             $project: {
-              _id: 0,
+              id: '$_id',
+              userId: 1,
+              name: 1,
+              type: 1,
+              isPublic: 1,
+              parentId: {
+                $cond: { if: { $eq: ['$parentId', '0'] }, then: 0, else: '$parentId' },
+              },
+            },
+          },
+        ])
+        .toArray();
+
+      res.status(200).json(files);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }static async getIndex(req, res) {
+    const { user } = req;
+    const parentId = req.query.parentId || ROOT_FOLDER_ID.toString();
+    const page = /\d+/.test((req.query.page || '').toString())
+      ? Number.parseInt(req.query.page, 10)
+      : 0;
+
+    let parentIdFilter;
+
+    if (parentId === ROOT_FOLDER_ID.toString()) {
+      parentIdFilter = '0'; // Root folder as string '0'
+    } else if (isValidId(parentId)) {
+      parentIdFilter = new mongoDBCore.BSON.ObjectId(parentId); // Convert to ObjectId if valid
+    } else {
+      parentIdFilter = NULL_ID; // Use NULL_ID if invalid
+    }
+
+    const filesFilter = {
+      userId: user._id,
+      parentId: parentIdFilter,
+    };
+
+    try {
+      const files = await (await dbClient.filesCollection())
+        .aggregate([
+          { $match: filesFilter },
+          { $sort: { _id: -1 } },
+          { $skip: page * MAX_FILES_PER_PAGE },
+          { $limit: MAX_FILES_PER_PAGE },
+          {
+            $project: {
               id: '$_id',
               userId: 1,
               name: 1,
