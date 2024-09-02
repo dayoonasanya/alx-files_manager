@@ -96,8 +96,6 @@ export default class FilesController {
     const baseDir = `${process.env.FOLDER_PATH || ''}`.trim().length > 0
       ? process.env.FOLDER_PATH.trim()
       : joinPath(tmpdir(), DEFAULT_ROOT_FOLDER);
-    // default baseDir == '/tmp/files_manager'
-    // or (on Windows) '%USERPROFILE%/AppData/Local/Temp/files_manager';
     const newFile = {
       userId: new mongoDBCore.BSON.ObjectId(userId),
       name,
@@ -116,7 +114,6 @@ export default class FilesController {
     const insertionInfo = await (await dbClient.filesCollection())
       .insertOne(newFile);
     const fileId = insertionInfo.insertedId.toString();
-    // start thumbnail generation worker
     if (type === VALID_FILE_TYPES.image) {
       const jobName = `Image thumbnail [${userId}-${fileId}]`;
       fileQueue.add({ userId, fileId, name: jobName });
@@ -170,34 +167,48 @@ export default class FilesController {
     const page = /\d+/.test((req.query.page || '').toString())
       ? Number.parseInt(req.query.page, 10)
       : 0;
+
+    let parentIdFilter;
+
+    if (parentId === ROOT_FOLDER_ID.toString()) {
+      parentIdFilter = parentId; // Root folder as string '0'
+    } else if (isValidId(parentId)) {
+      parentIdFilter = new mongoDBCore.BSON.ObjectId(parentId); // Convert to ObjectId if valid
+    } else {
+      parentIdFilter = NULL_ID; // Use NULL_ID if invalid
+    }
+
     const filesFilter = {
       userId: user._id,
-      parentId: parentId === ROOT_FOLDER_ID.toString()
-        ? parentId
-        : new mongoDBCore.BSON.ObjectId(isValidId(parentId) ? parentId : NULL_ID),
+      parentId: parentIdFilter,
     };
 
-    const files = await (await (await dbClient.filesCollection())
-      .aggregate([
-        { $match: filesFilter },
-        { $sort: { _id: -1 } },
-        { $skip: page * MAX_FILES_PER_PAGE },
-        { $limit: MAX_FILES_PER_PAGE },
-        {
-          $project: {
-            _id: 0,
-            id: '$_id',
-            userId: '$userId',
-            name: '$name',
-            type: '$type',
-            isPublic: '$isPublic',
-            parentId: {
-              $cond: { if: { $eq: ['$parentId', '0'] }, then: 0, else: '$parentId' },
+    try {
+      const files = await (await (await dbClient.filesCollection())
+        .aggregate([
+          { $match: filesFilter },
+          { $sort: { _id: -1 } },
+          { $skip: page * MAX_FILES_PER_PAGE },
+          { $limit: MAX_FILES_PER_PAGE },
+          {
+            $project: {
+              _id: 0,
+              id: '$_id',
+              userId: '$userId',
+              name: '$name',
+              type: '$type',
+              isPublic: '$isPublic',
+              parentId: {
+                $cond: { if: { $eq: ['$parentId', '0'] }, then: 0, else: '$parentId' },
+              },
             },
           },
-        },
-      ])).toArray();
-    res.status(200).json(files);
+        ])).toArray();
+
+      res.status(200).json(files);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 
   static async putPublish(req, res) {
