@@ -171,7 +171,7 @@ export default class FilesController {
     let parentIdFilter;
 
     if (parentId === ROOT_FOLDER_ID.toString()) {
-      parentIdFilter = parentId; // Root folder as string '0'
+      parentIdFilter = '0'; // Root folder as string '0'
     } else if (isValidId(parentId)) {
       parentIdFilter = new mongoDBCore.BSON.ObjectId(parentId); // Convert to ObjectId if valid
     } else {
@@ -184,7 +184,7 @@ export default class FilesController {
     };
 
     try {
-      const files = await (await (await dbClient.filesCollection())
+      const files = await (await dbClient.filesCollection())
         .aggregate([
           { $match: filesFilter },
           { $sort: { _id: -1 } },
@@ -194,16 +194,17 @@ export default class FilesController {
             $project: {
               _id: 0,
               id: '$_id',
-              userId: '$userId',
-              name: '$name',
-              type: '$type',
-              isPublic: '$isPublic',
+              userId: 1,
+              name: 1,
+              type: 1,
+              isPublic: 1,
               parentId: {
                 $cond: { if: { $eq: ['$parentId', '0'] }, then: 0, else: '$parentId' },
               },
             },
           },
-        ])).toArray();
+        ])
+        .toArray();
 
       res.status(200).json(files);
     } catch (error) {
